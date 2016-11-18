@@ -8,10 +8,16 @@ else:
 import mock
 import tempfile
 import logging
+import multiprocessing
+import time
+from threading import Thread
 
 import beaver
 from beaver.config import BeaverConfig
+from beaver.run_queue import run_queue
 from beaver.transports import create_transport
+from beaver.transports.exception import TransportException
+from beaver.transports.kinesis_transport import KinesisTransport
 from beaver.unicode_dammit import unicode_dammit
 
 from fixtures import Fixture
@@ -122,6 +128,44 @@ class KinesisTests(unittest.TestCase):
         self.assertTrue(transport.callback("test.log", **data))
         self.assertEqual(1, mock_send_batch.call_count)
 
+    @mock_kinesis
+    @mock.patch.object(KinesisTransport, '_send_message_batch')
+    def test_kinesis_send_stream_with_retries(self, mock_send_batch):
+        self._create_streams()
+        self.beaver_config.set('kinesis_aws_stream', 'stream1')
+        self.beaver_config.set('kinesis_aws_profile_name', None)
+        self.beaver_config.set('kinesis_aws_access_key', None)
+        self.beaver_config.set('kinesis_aws_secret_key', None)
+        self.beaver_config.set('kinesis_bulk_lines', False)
+        self.beaver_config.set('respawn_delay', 0)
+
+        mock_send_batch.side_effect = [TransportException(), True]
+
+        data = {}
+        lines = []
+        n = 500
+        for i in range(n):
+            lines.append('log' + str(i) + '\n')
+        new_lines = []
+        for line in lines:
+            message = unicode_dammit(line)
+            if len(message) == 0:
+                continue
+            new_lines.append(message)
+        data['lines'] = new_lines
+        data['fields'] = []
+        data['filename'] = 'test.log'
+        queue = multiprocessing.JoinableQueue(10)
+        queue.put(('callback', data))
+
+        with mock.patch('signal.signal'):
+            thread = Thread(target=run_queue, args=(queue, self.beaver_config),
+                            kwargs={'logger': self.logger})
+            thread.daemon = True # So that it exits when the tests do
+            thread.start()
+            time.sleep(1)
+            self.assertEqual(2, mock_send_batch.call_count)
+            queue.put(('exit', {}))
 
     @mock_kinesis
     def test_kinesis_send_stream_with_record_count_cutoff(self):

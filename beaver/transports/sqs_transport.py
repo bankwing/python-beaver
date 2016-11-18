@@ -145,3 +145,8 @@ class SqsTransport(BaseTransport):
 
     def unhandled(self):
         return True
+
+    def reconnect(self):
+        if self._connection:
+            self._is_valid = True
+        return self._is_valid
