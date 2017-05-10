@@ -17,6 +17,8 @@ except ImportError:
     import msgpack_pure as msgpack
 
 
+from beaver.encrypters import ENCRYPTERS
+
 class BaseTransport(object):
 
     def __init__(self, beaver_config, logger=None):
@@ -118,6 +120,8 @@ class BaseTransport(object):
         """Returns a formatted log line"""
         line = unicode(line.encode("utf-8")[:32766], "utf-8", errors="ignore")
         formatter = self._beaver_config.get_field('format', filename)
+        encrypter = self._beaver_config.get_field('encrypter', filename)
+        encrypter = encrypter or self._beaver_config.get('encrypter') or 'default'
         if formatter not in self._formatters:
             formatter = self._default_formatter
 
@@ -139,7 +143,9 @@ class BaseTransport(object):
             for key in fields:
                 data[key] = fields.get(key)
 
-        return self._formatters[formatter](data)
+        formatted = self._formatters[formatter](data)
+        encrypter_instance = ENCRYPTERS[encrypter].get_instance(self._beaver_config, filename, logger=self._logger)
+        return encrypter_instance.encrypt(formatted)
 
     def get_timestamp(self, **kwargs):
         """Retrieves the timestamp for a given set of data"""
