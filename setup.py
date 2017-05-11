@@ -61,7 +61,8 @@ setup(
         'beaver.dispatcher',
         'beaver.tests',
         'beaver.transports',
-        'beaver.worker'
+        'beaver.worker',
+        'beaver.encrypters'
     ],
     scripts=['bin/beaver'],
     url='http://github.com/python-beaver/python-beaver',
