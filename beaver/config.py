@@ -49,7 +49,23 @@ class BeaverConfig():
             'tail_lines': '0',
             'type': '',
             # Redis specific namespace
-            'redis_namespace': ''
+            'redis_namespace': '',
+
+            # default does no encryption
+            # other options:
+            # - kms for KMS encryption.
+            'encrypter': None,
+
+            # Settings for using AWS KMS to encrypt the data.
+            # This uses https://github.com/awslabs/aws-encryption-sdk-python.
+            # At lease one key_id should be specified.
+            # If provided within a file section, the configs for the section override any of the KMS configs
+            # provided in the general [beaver] config, allowing for different encryption settings for each file,
+            # if desired.
+            'aws_kms_access_key': None,
+            'aws_kms_secret_key': None,
+            'aws_kms_key_ids': None,
+            'aws_kms_encryption_context': None,
         }
 
         self._main_defaults = {
@@ -184,7 +200,24 @@ class BeaverConfig():
             'pid': '',
 
             # Ignore files older then n days, use 0 to disable
-            'ignore_old_files': 0
+            'ignore_old_files': 0,
+
+            # default does no encryption
+            # other options:
+            # - kms for KMS encryption.
+            # This setting is overridden by the setting on the file section level.
+            'encrypter': None,
+
+            # Settings for using AWS KMS to encrypt the data.
+            # This uses https://github.com/awslabs/aws-encryption-sdk-python.
+            # At lease one key_id should be specified.
+            # If provided within a file section, the configs for the section override any of the KMS configs
+            # provided in the general [beaver] config, allowing for different encryption settings for each file,
+            # if desired.
+            'aws_kms_access_key': None,
+            'aws_kms_secret_key': None,
+            'aws_kms_key_ids': None,
+            'aws_kms_encryption_context': None,
         }
 
         self._configfile = args.config
