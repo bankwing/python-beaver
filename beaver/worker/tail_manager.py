@@ -53,10 +53,14 @@ class TailManager(BaseLog):
                 self._tails[tail.fid()] = tail
 
     def create_queue_consumer_if_required(self, interval=5.0):
-        for n in range(0,self._number_of_consumer_processes):
-            if not (self._proc[n] and self._proc[n].is_alive()):
-                self._logger.debug("creating consumer process: " + str(n))
-                self._proc[n] = self._create_queue_consumer()
+        try:
+            for n in range(0, self._number_of_consumer_processes):
+                if not (self._proc[n] and self._proc[n].is_alive()):
+                    self._logger.debug("creating consumer process: " + str(n))
+                    self._proc[n] = self._create_queue_consumer()
+        except:
+            self._logger.exception('Error creating a new queue consumer. '
+                                   'Will retry again in {} seconds'.format(interval))
         timer = threading.Timer(interval, self.create_queue_consumer_if_required)
         timer.start()
 
