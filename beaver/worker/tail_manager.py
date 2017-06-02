@@ -4,6 +4,7 @@ import os
 import stat
 import time
 import signal
+import sys
 import threading
 
 from beaver.utils import eglob
@@ -26,6 +27,7 @@ class TailManager(BaseLog):
         self._proc = [None] * self._number_of_consumer_processes
         self._tails = {}
         self._update_time = None
+        self._exception = None
 
         self._active = True
 
@@ -54,21 +56,28 @@ class TailManager(BaseLog):
 
     def create_queue_consumer_if_required(self, interval=5.0):
         try:
-            for n in range(0, self._number_of_consumer_processes):
-                if not (self._proc[n] and self._proc[n].is_alive()):
-                    self._logger.debug("creating consumer process: " + str(n))
-                    self._proc[n] = self._create_queue_consumer()
+            self._create_queue_consumer_if_required()
         except:
-            self._logger.exception('Error creating a new queue consumer. '
-                                   'Will retry again in {} seconds'.format(interval))
+            self._exception = sys.exc_info()
+            raise
+
         timer = threading.Timer(interval, self.create_queue_consumer_if_required)
         timer.start()
 
-    def run(self, interval=0.1,):
+    def _create_queue_consumer_if_required(self):
+        for n in range(0, self._number_of_consumer_processes):
+            if not (self._proc[n] and self._proc[n].is_alive()):
+                self._logger.debug("creating consumer process: " + str(n))
+                self._proc[n] = self._create_queue_consumer()
 
-        self.create_queue_consumer_if_required()
+    def run(self, interval=0.1, refresh_consumers_interval=5.0):
+        self.create_queue_consumer_if_required(refresh_consumers_interval)
 
         while self._active:
+            if self._exception:
+                self.close()
+                raise self._exception
+
             for fid in self._tails.keys():
 
                 self.update_files()
