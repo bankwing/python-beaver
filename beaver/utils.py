@@ -3,15 +3,17 @@ import argparse
 import glob2
 import itertools
 import logging
+import logging.config
 from logging.handlers import RotatingFileHandler
 import platform
 import re
 import os
+import os.path
 import sys
+import yaml
+import json
 
 import beaver
-
-logging.basicConfig()
 
 MAGIC_BRACKETS = re.compile('({([^}]+)})')
 IS_GZIPPED_FILE = re.compile('.gz$')
@@ -21,7 +23,7 @@ CAN_DAEMONIZE = sys.platform != 'win32'
 cached_regices = {}
 
 
-def parse_args():
+def parse_args(args=None):
     epilog_example = """
     Beaver provides an lightweight method for shipping local log
     files to Logstash. It does this using either redis, stdin,
@@ -33,25 +35,132 @@ def parse_args():
 
     Please see the readme for complete examples.
     """
-    parser = argparse.ArgumentParser(description='Beaver logfile shipper', epilog=epilog_example, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-c', '--configfile', help='ini config file path', dest='config', default='/dev/null')
-    parser.add_argument('-C', '--confd-path', help='path to conf.d directory', dest='confd_path', default='/etc/beaver/conf.d')
-    parser.add_argument('-d', '--debug', help='enable debug mode', dest='debug', default=False, action='store_true')
-    parser.add_argument('-D', '--daemonize', help='daemonize in the background', dest='daemonize', default=False, action='store_true')
-    parser.add_argument('-f', '--files', help='space-separated filelist to watch, can include globs (*.log). Overrides --path argument', dest='files', default=None, nargs='+')
-    parser.add_argument('-F', '--format', help='format to use when sending to transport', default=None, dest='format', choices=['json', 'msgpack', 'raw', 'rawjson', 'string', 'gelf'])
-    parser.add_argument('-H', '--hostname', help='manual hostname override for source_host', default=None, dest='hostname')
-    parser.add_argument('-m', '--mode', help='bind or connect mode', dest='mode', default=None, choices=['bind', 'connect'])
-    parser.add_argument('-l', '--logfile', '-o', '--output', help='file to pipe output to (in addition to stdout)', default=None, dest='output')
-    parser.add_argument('-p', '--path', help='path to log files', default=None, dest='path')
-    parser.add_argument('-P', '--pid', help='path to pid file', default=None, dest='pid')
-    parser.add_argument('-t', '--transport', help='log transport method', dest='transport', default=None, choices=['kafka', 'mqtt', 'rabbitmq', 'redis', 'sns', 'sqs', 'kinesis', 'stdout', 'tcp', 'udp', 'zmq', 'http'])
-    parser.add_argument('-v', '--version', help='output version and quit', dest='version', default=False, action='store_true')
-    parser.add_argument('--fqdn', help='use the machine\'s FQDN for source_host', dest='fqdn', default=False, action='store_true')
-    parser.add_argument('--max-bytes', action='store', dest='max_bytes', type=int, default=64 * 1024 * 1024, help='Maximum bytes per a logfile.')
-    parser.add_argument('--backup-count', action='store', dest='backup_count', type=int, default=1, help='Maximum number of logfiles to backup.')
+    parser = argparse.ArgumentParser(description='Beaver logfile shipper',
+                                     epilog=epilog_example,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    args = parser.parse_args()
+    # Configures file location of beaver ini formatted config file.
+    parser.add_argument('-c', '--configfile',
+                        help='ini config file path',
+                        dest='config',
+                        default='/dev/null')
+
+    # Configures file location of conf.d directory.
+    parser.add_argument('-C', '--confd-path',
+                        help='path to conf.d directory',
+                        dest='confd_path',
+                        default='/etc/beaver/conf.d')
+
+    # Debug flag for debug logging.
+    parser.add_argument('-d', '--debug',
+                        help='enable debug mode',
+                        dest='debug',
+                        default=False,
+                        action='store_true')
+
+    # Daemonize the application AKA fork the process and run it in the background.
+    parser.add_argument('-D', '--daemonize',
+                        help='daemonize in the background',
+                        dest='daemonize',
+                        default=False,
+                        action='store_true')
+
+    # Files to watch
+    parser.add_argument('-f', '--files',
+                        help='space-separated filelist to watch, can include globs (*.log). Overrides --path argument',
+                        dest='files',
+                        default=None,
+                        nargs='+')
+
+    # Transport format
+    parser.add_argument('-F', '--format',
+                        help='format to use when sending to transport',
+                        default=None,
+                        dest='format',
+                        choices=['json', 'msgpack', 'raw', 'rawjson', 'string', 'gelf'])
+
+    # hostname override for source host. In not provided defaults to socket.gethostname()
+    parser.add_argument('-H', '--hostname',
+                        help='manual hostname override for source_host',
+                        default=None,
+                        dest='hostname')
+
+    # Bind or connect mode.
+    parser.add_argument('-m', '--mode',
+                        help='bind or connect mode',
+                        dest='mode',
+                        default=None,
+                        choices=['bind', 'connect'])
+
+    # Addition logfile to write output to.
+    parser.add_argument('-l', '--logfile',
+                        '-o', '--output',
+                        help='file to pipe output to (in addition to stdout)',
+                        default=None,
+                        dest='output')
+
+    # Path to log files.
+    parser.add_argument('-p', '--path',
+                        help='path to log files',
+                        default=None,
+                        dest='path')
+
+    # Path to a pid file to store the currently running process when --daemonize is set.
+    parser.add_argument('-P', '--pid',
+                        help='path to pid file',
+                        default=None,
+                        dest='pid')
+
+    # Which transport to use.
+    parser.add_argument('-t', '--transport',
+                        help='log transport method',
+                        dest='transport',
+                        default=None,
+                        choices=['kafka', 'mqtt', 'rabbitmq', 'redis', 'sns',
+                                 'sqs', 'kinesis', 'stdout', 'tcp', 'udp',
+                                 'zmq', 'http', 'file'])
+
+    # Print the version of beaver.
+    parser.add_argument('-v', '--version',
+                        help='output version and quit',
+                        dest='version',
+                        default=False,
+                        action='store_true')
+
+    # Use the machine's FQDN for source_host
+    parser.add_argument('--fqdn',
+                        help='use the machine\'s FQDN for source_host',
+                        dest='fqdn',
+                        default=False,
+                        action='store_true')
+
+    # Maximum bytes per log file when --logfile is provided for output logging. (Defaults to 64MB)
+    parser.add_argument('--max-bytes',
+                        action='store',
+                        dest='max_bytes',
+                        type=int,
+                        default=64 * 1024 * 1024,
+                        help='Maximum bytes per a logfile.')
+
+    # Number of backup files to keep around when --logfile is provided for output logging.
+    parser.add_argument('--backup-count',
+                        action='store',
+                        dest='backup_count',
+                        type=int,
+                        default=1,
+                        help='Maximum number of logfiles to backup.')
+
+    # A YAML, JSON, or configparser (.ini) formatted logging config to use.
+    # See https://docs.python.org/2/library/logging.config.html.
+    # A file ending with .yaml and .yml is parsed as yaml.
+    # A file ending with .json is parsed as json.
+    # A file ending in .cfg or anything else is parsed as a configparser format (.ini format)
+    parser.add_argument('--logging-config',
+                        help='Path to a python logging config.',
+                        default=None,
+                        dest='logging_config')
+
+    args = parser.parse_args(args)
 
     if args.config != "/dev/null":
         args.config = os.path.realpath(args.config)
@@ -60,6 +169,29 @@ def parse_args():
 
 
 def setup_custom_logger(name, args=None, output=None, formatter=None, debug=None, config=None, max_bytes=None, backup_count=None):
+    if args and args.logging_config:
+        logging_config = args.logging_config
+        if not os.path.exists(logging_config):
+            raise OSError("No such file {}".format(logging_config))
+        if not os.path.isfile(logging_config):
+            raise ValueError("Path {} must be a file not a directory.".format(logging_config))
+        if logging_config.endswith('.yml') or logging_config.endswith('.yaml'):
+            # Parse as YAML
+            with open(logging_config, 'r') as f:
+                dictionary = yaml.load(f.read())
+                logging.config.dictConfig(dictionary)
+        elif logging_config.endswith('.json'):
+            # Parse as JSON
+            with open(logging_config, 'r') as f:
+                dictionary = json.loads(f.read())
+                logging.config.dictConfig(dictionary)
+        else:
+            logging.config.fileConfig(logging_config)
+
+        return logging.getLogger(name)
+
+    # Anything past here means we don't have a logging config, so set up default logging.
+    logging.basicConfig()
     logger = logging.getLogger(name)
     logger.propagate = False
     if logger.handlers:
