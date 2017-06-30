@@ -9,3 +9,4 @@ python-daemon>=1.5.2,<=1.6.1
 redis>=2.7.5
 requests
 aws-encryption-sdk
+pyyaml

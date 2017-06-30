@@ -1,6 +1,14 @@
 Changelog
 =========
 
+36.2.1-affirm-1.1
+-----------------
+Support --logging-config for user-provided python logging config.
+
+36.2.1-affirm1
+--------------
+Fix bug where exception in create_queue_consumer_if_required causes beaver to silently stop tailing logs.
+
 36.2.1 (2016-09-20)
 -------------------
 

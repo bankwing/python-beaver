@@ -10,7 +10,8 @@ usage::
     beaver [-h] [-c CONFIG] [-C CONFD_PATH] [-d] [-D] [-f FILES [FILES ...]]
            [-F {json,msgpack,raw,rawjson,string}] [-H HOSTNAME] [-m {bind,connect}]
            [-l OUTPUT] [-p PATH] [-P PID]
-           [-t {kafka,mqtt,rabbitmq,redis,sns,sqs,kinesis,stdout,tcp,udp,zmq,stomp}] [-v] [--fqdn]
+           [-t {kafka,mqtt,rabbitmq,redis,sns,sqs,kinesis,stdout,tcp,udp,zmq,stomp,file}] [-v] [--fqdn]
+           [--logging-config LOGGING_CONFIG_PATH]
 
 optional arguments::
 
@@ -37,6 +38,7 @@ optional arguments::
                           log transport method
     -v, --version         output version and quit
     --fqdn                use the machine's FQDN for source_host
+    --logging-config      path to a python logging config. Can be a .yaml, .json, or .cfg file with the logging configuration.
 
 Configuration File Options
 --------------------------
@@ -112,7 +114,7 @@ Beaver can optionally get data from a ``configfile`` using the ``-c`` flag. This
 * stomp_user: Default ``None``
 * stomp_password: Default ``None``
 * stomp_queue: Default ``queue/logstash``
-
+* file_transport_output_path: Output path to write messages when 'file' output is used. Default ``None``
 
 The following are used for instances when a TransportException is thrown - Transport dependent
 
@@ -652,6 +654,55 @@ Multi-line event for Python traceback::
       File "doerr.py", line 7, in faulty_function
         0 / 0
     ZeroDivisionError: integer division or modulo by zero
+
+Configuring custom logging handlers using python logging
+********************************************************
+You can provide a python logging configuration file for INFO, WARN, DEBUG, etc logs beaver writes during operation.
+See https://docs.python.org/2/library/logging.config.html for details.
+You can use yaml, json, or cfg format for the logging config.
+For yaml, the filename must end with .yml or .yaml
+For json, the filename must end with .json
+Any other file suffix is read as .cfg using logging.config.fileConfig()
+
+Example YAML::
+
+version: 1
+formatters:
+  file:
+    format: '%(asctime)s %(levelname)s %(message)s'
+handlers:
+  file:
+    class: logging.handlers.WatchedFileHandler
+    filename: /var/log/beaver.log
+    formatter: file
+    level: INFO
+root:
+  level: INFO
+  handlers:
+    - file
+
+
+Example JSON::
+{
+    "version": 1,
+    "formatters": {
+        "file": {
+            "format": "%(asctime)s %(levelname)s %(message)s",
+        }
+    },
+    "handlers": {
+        "file": {
+            "class": "logging.handlers.WatchedFileHandler",
+            "filename": "/var/log/beaver.log",
+            "formatter": "file",
+            "level": "INFO"
+        }
+    },
+    "root": {
+        "level": "INFO",
+        "handlers": ["file"],
+    }
+}
 
 SSH Tunneling Support
 *********************
