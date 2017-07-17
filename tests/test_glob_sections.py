@@ -13,7 +13,7 @@ class ConfigTests(unittest.TestCase):
 
     def setUp(self):
         self.config = lambda: None
-        self.config.config = 'tests/square_bracket_sections.ini'
+        self.config.config = 'tests/configs/square_bracket_sections.ini'
         self.config.mode = 'bind'
         self.beaver_config = BeaverConfig(self.config)
 

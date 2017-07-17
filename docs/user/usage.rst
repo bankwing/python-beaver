@@ -660,49 +660,77 @@ Configuring custom logging handlers using python logging
 You can provide a python logging configuration file for INFO, WARN, DEBUG, etc logs beaver writes during operation.
 See https://docs.python.org/2/library/logging.config.html for details.
 You can use yaml, json, or cfg format for the logging config.
-For yaml, the filename must end with .yml or .yaml
-For json, the filename must end with .json
+For yaml, the filename must end with .yml or .yaml. YAML logging configs are only supported with python >= 2.7.
+For json, the filename must end with .json. JSON logging configs are only supported with python >= 2.7.
 Any other file suffix is read as .cfg using logging.config.fileConfig()
 
-Example YAML::
+Basic Example ::
 
-version: 1
-formatters:
-  file:
-    format: '%(asctime)s %(levelname)s %(message)s'
-handlers:
-  file:
-    class: logging.handlers.WatchedFileHandler
-    filename: /var/log/beaver.log
-    formatter: file
-    level: INFO
-root:
-  level: INFO
-  handlers:
-    - file
+    # /etc/beaver/logging.cfg
+    [loggers]
+    keys = root
+
+    [handlers]
+    keys = file
+
+    [formatters]
+    keys = file
+
+    [formatter_file]
+    format = %(asctime)s %(levelname)s %(message)s
+
+    [handler_file]
+    class = logging.handlers.WatchedFileHandler
+    formatter = file
+    level = INFO
+    args = ('/var/log/beaver.log',)
+
+    [logger_root]
+    level = INFO
+    handlers=file
+
+Example YAML (python >= 2.7)::
+
+    # /etc/beaver/logging.yml
+    version: 1
+    formatters:
+      file:
+        format: '%(asctime)s %(levelname)s %(message)s'
+    handlers:
+      file:
+        class: logging.handlers.WatchedFileHandler
+        filename: /var/log/beaver.log
+        formatter: file
+        level: INFO
+    root:
+      level: INFO
+      handlers:
+        - file
 
 
-Example JSON::
-{
-    "version": 1,
-    "formatters": {
-        "file": {
-            "format": "%(asctime)s %(levelname)s %(message)s",
+Example JSON (python >= 2.7)::
+
+    # /etc/beaver/logging.json
+    {
+        "version": 1,
+        "formatters": {
+            "file": {
+                "format": "%(asctime)s %(levelname)s %(message)s",
+            }
+        },
+        "handlers": {
+            "file": {
+                "class": "logging.handlers.WatchedFileHandler",
+                "filename": "/var/log/beaver.log",
+                "formatter": "file",
+                "level": "INFO"
+            }
+        },
+        "root": {
+            "level": "INFO",
+            "handlers": ["file"],
         }
-    },
-    "handlers": {
-        "file": {
-            "class": "logging.handlers.WatchedFileHandler",
-            "filename": "/var/log/beaver.log",
-            "formatter": "file",
-            "level": "INFO"
-        }
-    },
-    "root": {
-        "level": "INFO",
-        "handlers": ["file"],
     }
-}
 
 SSH Tunneling Support
 *********************

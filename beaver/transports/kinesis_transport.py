@@ -28,8 +28,8 @@ class KinesisTransport(BaseTransport):
                 self._connection = boto.kinesis.connect_to_region(self._region)
             else:
                 self._connection = boto.kinesis.connect_to_region(self._region,
-                                                              aws_access_key_id=self._access_key,
-                                                              aws_secret_access_key=self._secret_key)
+                                                                  aws_access_key_id=self._access_key,
+                                                                  aws_secret_access_key=self._secret_key)
 
             if self._connection is None:
                 self._logger.warn('Unable to connect to AWS Kinesis - check your AWS credentials')

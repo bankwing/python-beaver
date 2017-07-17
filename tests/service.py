@@ -27,6 +27,7 @@ class ExternalService(object):
 class SpawnedService(threading.Thread):
     def __init__(self, args=None, env=None):
         threading.Thread.__init__(self)
+        self.daemon = True
 
         if args is None:
             raise TypeError("args parameter is required")

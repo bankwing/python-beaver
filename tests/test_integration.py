@@ -1,4 +1,9 @@
-import unittest
+import sys
+if sys.version_info < (2, 7):
+    import unittest2 as unittest
+else:
+    import unittest
+
 import time
 from tempfile import NamedTemporaryFile
 from multiprocessing import Process
@@ -17,7 +22,7 @@ class IntegrationTests(unittest.TestCase):
         self.beaver_config = NamedTemporaryFile()
         self.beaver_config.write("[beaver]\n"
                                  "logstash_version: 0\n"
-                                 "file_transport_output_path: {}\n".format(self.output.name))
+                                 "file_transport_output_path: {0}\n".format(self.output.name))
         self.beaver_config.flush()
 
     def tearDown(self):
@@ -69,6 +74,7 @@ class IntegrationTests(unittest.TestCase):
         finally:
             process.terminate()
 
+    @unittest.skipIf(sys.version_info[:2] <= (2, 6), 'yaml logging config not supported in 2.6')
     def test_with_logging_config_yaml(self):
         logging_config = NamedTemporaryFile(suffix='.yaml')
         logger_output = NamedTemporaryFile()
@@ -81,7 +87,7 @@ class IntegrationTests(unittest.TestCase):
                                         "handlers:",
                                         "  file:",
                                         "    class: logging.handlers.WatchedFileHandler",
-                                        "    filename: '{}'".format(logger_output.name),
+                                        "    filename: '{0}'".format(logger_output.name),
                                         "    formatter: file",
                                         "    level: INFO",
                                         "root:",
@@ -113,6 +119,7 @@ class IntegrationTests(unittest.TestCase):
         finally:
             process.terminate()
 
+    @unittest.skipIf(sys.version_info[:2] <= (2, 6), 'json logging config not supported in 2.6')
     def test_with_logging_config_json(self):
         logging_config = NamedTemporaryFile(suffix='.json')
         logger_output = NamedTemporaryFile()
@@ -185,7 +192,7 @@ class IntegrationTests(unittest.TestCase):
             "class = logging.handlers.WatchedFileHandler",
             "formatter = file",
             "level = INFO",
-            "args = ('{}',)".format(logger_output.name),
+            "args = ('{0}',)".format(logger_output.name),
 
             "[logger_root]",
             "level = INFO",

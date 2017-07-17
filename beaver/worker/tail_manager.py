@@ -5,8 +5,9 @@ import stat
 import time
 import signal
 import threading
+import logging
 
-from beaver.utils import eglob
+from beaver.utils import eglob, setup_custom_logger
 from beaver.base_log import BaseLog
 from beaver.worker.tail import Tail
 
@@ -15,6 +16,8 @@ class TailManager(BaseLog):
 
     def __init__(self, beaver_config, queue_consumer_function, callback, logger=None):
         super(TailManager, self).__init__(logger=logger)
+        if not self._logger:
+            self._logger = logging.getLogger('beaver')
         self._active = False
         self._beaver_config = beaver_config
         self._folder = self._beaver_config.get('path')

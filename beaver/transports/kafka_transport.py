@@ -60,11 +60,13 @@ class KafkaTransport(BaseTransport):
                 import warnings
                 with warnings.catch_warnings():
                     warnings.simplefilter('error')
-                    #produce message
+                    #  produce message
                     if self._key is None:
-                        response = self._prod.send_messages(self._kafka_config['topic'], self.format(filename, line, timestamp, **kwargs))
+                        response = self._prod.send_messages(self._kafka_config['topic'],
+                                                            self.format(filename, line,timestamp, **kwargs))
                     else:
-                        response = self._prod.send_messages(self._kafka_config['topic'], self._key, self.format(filename, line, timestamp, **kwargs))
+                        response = self._prod.send_messages(self._kafka_config['topic'], self._key,
+                                                            self.format(filename, line, timestamp, **kwargs))
 
                     if response:
                         if response[0].error:

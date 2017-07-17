@@ -59,7 +59,6 @@ setup(
     packages=[
         'beaver',
         'beaver.dispatcher',
-        'beaver.tests',
         'beaver.transports',
         'beaver.worker',
         'beaver.encrypters'

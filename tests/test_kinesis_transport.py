@@ -14,16 +14,13 @@ from beaver.config import BeaverConfig
 from beaver.transports import create_transport
 from beaver.unicode_dammit import unicode_dammit
 
-from fixtures import Fixture
-
-from moto import mock_kinesis
-import boto.kinesis
+from moto import mock_kinesis_deprecated as mock_kinesis
+import boto
 
 class KinesisTests(unittest.TestCase):
-
     @mock_kinesis
     def _create_streams(self):
-        conn = boto.kinesis.connect_to_region("us-east-1")
+        conn = boto.kinesis.connect_to_region("us-east-1", aws_access_key_id='access', aws_secret_access_key='secret')
         conn.create_stream("stream1", 1)
         conn.create_stream("stream2", 1)
 
@@ -35,9 +32,6 @@ class KinesisTests(unittest.TestCase):
         cls.beaver_config = BeaverConfig(mock.Mock(config=empty_conf.name))
         cls.beaver_config.set('transport', 'kinesis')
         cls.beaver_config.set('logstash_version', 1)
-
-        output_file = Fixture.download_official_distribution()
-        Fixture.extract_distribution(output_file)
 
     @mock_kinesis
     def test_kinesis_default_auth_profile(self):
