@@ -176,11 +176,15 @@ def setup_custom_logger(name, args=None, output=None, formatter=None, debug=None
         if not os.path.isfile(logging_config):
             raise ValueError("Path {} must be a file not a directory.".format(logging_config))
         if logging_config.endswith('.yml') or logging_config.endswith('.yaml'):
+            if sys.version_info[:2] <= (2, 6):
+                raise ValueError('yaml logging config is only supported with python versions >= 2.7.')
             # Parse as YAML
             with open(logging_config, 'r') as f:
                 dictionary = yaml.load(f.read())
                 logging.config.dictConfig(dictionary)
         elif logging_config.endswith('.json'):
+            if sys.version_info[:2] <= (2, 6):
+                raise ValueError('json logging config is only supported with python versions >= 2.7.')
             # Parse as JSON
             with open(logging_config, 'r') as f:
                 dictionary = json.loads(f.read())

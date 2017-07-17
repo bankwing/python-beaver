@@ -60,7 +60,7 @@ class KafkaTests(unittest.TestCase):
 
         data = {}
         lines = []
-        n=100
+        n = 100
         for i in range(n):
             lines.append('log' + str(i) + '\n')
         new_lines = []
@@ -71,19 +71,21 @@ class KafkaTests(unittest.TestCase):
             new_lines.append(message)
         data['lines'] = new_lines
         data['fields'] = []
-        transport.callback("test.log", **data)
+        infile = tempfile.NamedTemporaryFile()
+        transport.callback(infile.name, **data)
 
         messages = cls._consume_messages(cls.server.host, cls.server.port)
         cls.assertEqual(n, messages.__len__())
         for message in messages:
-            cls.assertIn('"file": "test.log", "message": "log', message.message.value);
-            print(message)
-        print('\n')
+            cls.assertIn('"file": "{0}"'.format(infile.name), message.message.value)
+            cls.assertIn('"message": "log', message.message.value)
 
         transport.interrupt()
 
     def _consume_messages(cls, host, port):
         kafka = KafkaClient(cls.server.host + ":" + str(cls.server.port))
         consumer = MultiProcessConsumer(kafka, None, cls.beaver_config.get('kafka_topic'), num_procs=5)
-        return consumer.get_messages(count=100, block=True, timeout=5)
-
+        try:
+            return consumer.get_messages(count=100, block=True, timeout=5)
+        finally:
+            consumer.stop()

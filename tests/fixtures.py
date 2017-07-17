@@ -27,6 +27,7 @@ def get_open_port():
     sock.close()
     return port
 
+
 class Fixture(object):
     kafka_version = os.environ.get('KAFKA_VERSION', '0.8.2.0')
     scala_version = os.environ.get("SCALA_VERSION", '2.10')

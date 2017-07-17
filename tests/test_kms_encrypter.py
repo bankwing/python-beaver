@@ -1,12 +1,17 @@
-import unittest
+import sys
+if sys.version_info < (2, 7):
+    import unittest2 as unittest
+else:
+    import unittest
+
 from mock import MagicMock
 
 from moto import mock_kms
 import boto3
-
 from beaver.encrypters import KmsEncrypter
 
 
+@unittest.skipIf(sys.version_info[:2] <= (2, 6), 'KMS encryption only supported in python >= 2.7')
 class TestKmsEncryptor(unittest.TestCase):
     def __call__(self, *args, **kwargs):
         with mock_kms():

@@ -69,6 +69,6 @@ with mock.patch('pika.adapters.SelectConnection') as mock_pika:
             self.assertIsInstance(transport, ZmqTransport)
 
         def test_custom_transport(self):
-            beaver_config = self._get_config(transport='beaver.tests.test_transport_config.DummyTransport')
+            beaver_config = self._get_config(transport='tests.test_transport_config.DummyTransport')
             transport = create_transport(beaver_config, logger=self.logger)
             self.assertIsInstance(transport, DummyTransport)
