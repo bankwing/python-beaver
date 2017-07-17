@@ -6,6 +6,8 @@ import uuid
 from beaver.transports.base_transport import BaseTransport
 from beaver.transports.exception import TransportException
 
+from retrying import retry
+
 
 class KinesisTransport(BaseTransport):
 
@@ -18,7 +20,9 @@ class KinesisTransport(BaseTransport):
         self._stream_name = beaver_config.get('kinesis_aws_stream')
 
         # self-imposed max batch size to minimize the number of records in a given call to Kinesis
-        self._batch_size_max = beaver_config.get('kinesis_aws_batch_size_max', '512000')
+        self._batch_size_max = int(beaver_config.get('kinesis_aws_batch_size_max', '512000'))
+        self._max_retries = int(beaver_config.get('kinesis_max_retries', '3'))
+        self._initial_wait_between_retries = int(beaver_config.get('kinesis_initial_backoff_millis', '10'))
 
         # Kinesis Limit http://docs.aws.amazon.com/kinesis/latest/APIReference/API_PutRecords.html#API_PutRecords_RequestSyntax
         self._max_records_per_batch = 500
@@ -37,7 +41,6 @@ class KinesisTransport(BaseTransport):
 
         except Exception, e:
             raise TransportException(e.message)
-
 
     def callback(self, filename, lines, **kwargs):
         timestamp = self.get_timestamp(**kwargs)
@@ -77,12 +80,16 @@ class KinesisTransport(BaseTransport):
         return True
 
     def _send_message_batch(self, message_batch):
+        @retry(wait_exponential_multiplier=self._initial_wait_between_retries,
+               stop_max_attempt_number=self._max_retries,
+               retry_on_exception=lambda exc: ('ProvisionedThroughputExceededException' in exc.message
+                                               or 'Throttle' in exc.message or 'Throttling' in exc.message),
+               retry_on_result=lambda res: res.get('FailedRecordCount', 0) > 0)
+        def internal_send_message_batch_with_retry():
+            return self._connection.put_records(records=message_batch, stream_name=self._stream_name)
+
         try:
-            result = self._connection.put_records(records = message_batch, stream_name=self._stream_name)
-            if result.get('FailedRecordCount', 0) > 0:
-                self._logger.error('Error occurred sending records to Kinesis stream {0}. result: {1}'.format(
-                    self._stream_name, result))
-                raise TransportException('Error occurred sending records to stream {0}'.format(self._stream_name))
+            internal_send_message_batch_with_retry()
         except Exception, e:
             self._logger.exception('Exception occurred sending records to Kinesis stream')
             raise TransportException(e.message)

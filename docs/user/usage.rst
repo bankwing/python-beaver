@@ -97,6 +97,9 @@ Beaver can optionally get data from a ``configfile`` using the ``-c`` flag. This
 * kinesis_aws_region: Default ``us-east-1``. AWS Region
 * kinesis_aws_stream: Optional. Defaults ``None``. Name of the Kinesis stream to ship logs to
 * kinesis_aws_batch_size_max: Default ``512000``. Arbitrary flush size to limit size of logs in transit.
+* kinesis_max_retries: Default ``3``. Number of times client will retry retriable kinesis errors such as throttling.
+* kinesis_initial_backoff_millis: Default ``10``. Initial backoff in milliseconds for kinesis retries. Subsequent
+                                  retries will use exponential backoff starting from this value.
 * tcp_host: Default ``127.0.0.1``. TCP Host
 * tcp_port: Default ``9999``. TCP Port
 * tcp_ssl Defaults ``0``. Connect using SSL/TLS
