@@ -123,6 +123,8 @@ class BeaverConfig():
             'kinesis_aws_region': 'us-east-1', 
             'kinesis_aws_stream': '', 
             'kinesis_aws_batch_size_max': '512000',
+            'kinesis_max_retries': '3',
+            'kinesis_initial_backoff_millis': '10',
             'tcp_host': '127.0.0.1',
             'tcp_port': '9999',
             'tcp_ssl_enabled': '0',

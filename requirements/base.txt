@@ -10,3 +10,4 @@ redis>=2.7.5
 requests
 aws-encryption-sdk
 pyyaml
+retrying

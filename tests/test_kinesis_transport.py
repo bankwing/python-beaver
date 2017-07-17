@@ -147,3 +147,20 @@ class KinesisTests(unittest.TestCase):
         data['fields'] = []
         self.assertTrue(transport.callback("test.log", **data))
         self.assertEqual(2, mock_send_batch.call_count)
+
+    @mock_kinesis
+    def test_kinesis_send_stream_with_retries(self):
+        self._create_streams()
+        transport = create_transport(self.beaver_config, logger=self.logger)
+        mock_client = mock.Mock()
+        transport._connection = mock_client
+        mock_client.put_records.side_effect = [{'FailedRecordCount': 1}, {}]
+        transport._send_message_batch("doesntmatter")
+        self.assertEqual(2, mock_client.put_records.call_count)
+
+        mock_client.reset_mock()
+        mock_client.put_records.side_effect = [Exception('ProvisionedThroughputExceededException'),
+                                               Exception('ThrottlingException'),
+                                               {}]
+        transport._send_message_batch("doesntmatter")
+        self.assertEqual(3, mock_client.put_records.call_count)

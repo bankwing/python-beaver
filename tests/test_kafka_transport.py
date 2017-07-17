@@ -9,7 +9,7 @@ import mock
 import tempfile
 import logging
 
-from kafka import KafkaClient, MultiProcessConsumer
+from kafka import KafkaClient, SimpleConsumer
 
 import beaver
 from beaver.config import BeaverConfig
@@ -84,8 +84,6 @@ class KafkaTests(unittest.TestCase):
 
     def _consume_messages(cls, host, port):
         kafka = KafkaClient(cls.server.host + ":" + str(cls.server.port))
-        consumer = MultiProcessConsumer(kafka, None, cls.beaver_config.get('kafka_topic'), num_procs=5)
-        try:
-            return consumer.get_messages(count=100, block=True, timeout=5)
-        finally:
-            consumer.stop()
+        consumer = SimpleConsumer(kafka, None, cls.beaver_config.get('kafka_topic'))
+        return consumer.get_messages(count=100, block=True, timeout=5)
+
