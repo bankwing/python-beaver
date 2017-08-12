@@ -66,6 +66,8 @@ class BeaverConfig():
             'aws_kms_secret_key': None,
             'aws_kms_key_ids': None,
             'aws_kms_encryption_context': None,
+            'aws_kms_cache_capacity': None,
+            'aws_kms_cache_age_seconds': None
         }
 
         self._main_defaults = {
@@ -221,6 +223,8 @@ class BeaverConfig():
             'aws_kms_secret_key': None,
             'aws_kms_key_ids': None,
             'aws_kms_encryption_context': None,
+            'aws_kms_cache_capacity': None,
+            'aws_kms_cache_age_seconds': None
         }
 
         self._configfile = args.config

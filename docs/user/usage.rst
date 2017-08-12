@@ -119,6 +119,14 @@ Beaver can optionally get data from a ``configfile`` using the ``-c`` flag. This
 * stomp_queue: Default ``queue/logstash``
 * file_transport_output_path: Output path to write messages when 'file' output is used. Default ``None``
 
+* aws_kms_access_key: Explicit access key for KMS when KMS encrypter is used. Uses default AWS provider chain if not set.
+* aws_kms_secret_key: Explicit secret key for KMS when KMS encrypted is used. Uses default AWS provider chain if not set.
+* aws_kms_key_ids: A comma-delimited list of keyIds to use to encrypt the data. Usually just one is needed.
+* aws_kms_encryption_context: An encryption context for the KMS request. Format: key1=value1,key2=value2,...
+* aws_kms_cache_capacity: Default ``100``. The max size of the KMS materials LRU cache, which reuses KMS keys to avoid
+                          KMS calls to encrypt each line. See https://aws.amazon.com/blogs/security/aws-encryption-sdk-how-to-decide-if-data-key-caching-is-right-for-your-application/
+* aws_kms_cache_age_seconds: Default ``300``: The TTL of the KMS materials LRU cache.
+
 The following are used for instances when a TransportException is thrown - Transport dependent
 
 * respawn_delay: Default ``3``. Initial respawn delay for exponential backoff
@@ -153,6 +161,8 @@ The following can also be passed via argparse. Argparse will override all option
 * files: Default ``files``. Space-separated list of files to tail. (Comma separated if specified in the config file)
 * path: Default ``/var/log``. Path glob to tail.
 * transport: Default ``stdout``. Transport to use when log changes are detected
+* encrypter: Default ``None``. Encrypter to use for optionally encrypting the lines before sending them.
+             Each line is encrypted individually. Currently, only encrypter supported is 'kms'.
 * fqdn: Default ``False``. Whether to use the machine's FQDN in transport output
 * hostname: Default ``None``. Manually specified hostname
 

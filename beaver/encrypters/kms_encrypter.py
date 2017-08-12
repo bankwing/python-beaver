@@ -15,24 +15,32 @@ class KmsConfigValues(object):
                  aws_kms_access_key=None,
                  aws_kms_secret_key=None,
                  aws_kms_key_ids=[],
-                 aws_kms_encryption_context=None):
+                 aws_kms_encryption_context=None,
+                 cache_capacity=None,
+                 cache_age_seconds=None):
         self.aws_kms_access_key = aws_kms_access_key or None
         self.aws_kms_secret_key = aws_kms_secret_key or None
         self.aws_kms_key_ids = aws_kms_key_ids or []
         self.aws_kms_encryption_context = aws_kms_encryption_context or {}
+        self.cache_capacity = int(cache_capacity or 100)
+        self.cache_age_seconds = float(cache_age_seconds or 300)
 
     def __eq__(self, other):
         return isinstance(other, KmsConfigValues) and \
                self.aws_kms_access_key == other.aws_kms_access_key and \
                self.aws_kms_secret_key == other.aws_kms_secret_key and \
                set(self.aws_kms_key_ids) == set(other.aws_kms_key_ids) and \
-               self.aws_kms_encryption_context == other.aws_kms_encryption_context
+               self.aws_kms_encryption_context == other.aws_kms_encryption_context and \
+               self.cache_age_seconds == other.cache_age_seconds and \
+               self.cache_capacity == other.cache_capacity
 
     def __hash__(self):
         return hash((self.aws_kms_access_key,
                      self.aws_kms_secret_key,
-                     tuple(set(self.aws_kms_key_ids)),
-                     tuple([(k, v) for k, v in self.aws_kms_encryption_context.iteritems()])))
+                     tuple(sorted(self.aws_kms_key_ids)),
+                     tuple([(k, v) for k, v in self.aws_kms_encryption_context.iteritems()]),
+                     self.cache_capacity,
+                     self.cache_age_seconds))
 
 
 class KmsEncrypter(Encrypter):
@@ -75,8 +83,13 @@ class KmsEncrypter(Encrypter):
         else:
             self.logger.info('Using default boto credentials locations for KMS access.')
 
-        self.kms_client = aws_encryption_sdk.KMSMasterKeyProvider(botocore_session=session,
-                                                                  key_ids=kms_key_ids)
+        raw_key_provider = aws_encryption_sdk.KMSMasterKeyProvider(botocore_session=session,
+                                                                   key_ids=kms_key_ids)
+        cache = aws_encryption_sdk.LocalCryptoMaterialsCache(capacity=kms_configs.cache_capacity)
+        self.materials_manager = aws_encryption_sdk.CachingCryptoMaterialsManager(
+            master_key_provider=raw_key_provider,
+            cache=cache,
+            max_age=kms_configs.cache_age_seconds)
 
     def encrypt(self, message):
         return aws_encryption_sdk.encrypt(**self._get_kms_args(message))[0]
@@ -87,7 +100,7 @@ class KmsEncrypter(Encrypter):
     def _get_kms_args(self, message):
         kms_args = {
             'source': message,
-            'key_provider': self.kms_client,
+            'materials_manager': self.materials_manager,
         }
         if self.kms_encryption_context:
             kms_args['encryption_context'] = self.kms_encryption_context
@@ -98,6 +111,8 @@ class KmsEncrypter(Encrypter):
 def _get_kms_config_values(beaver_config, filename):
     kms_access_key = _load_config(beaver_config, 'aws_kms_access_key', filename) or None
     kms_secret_key = _load_config(beaver_config, 'aws_kms_secret_key', filename) or None
+    cache_capacity = _load_config(beaver_config, 'aws_kms_cache_capacity', filename) or None
+    cache_age_seconds = _load_config(beaver_config, 'aws_kms_cache_age_seconds', filename) or None
 
     kms_key_ids = _load_config(beaver_config, 'aws_kms_key_ids', filename) or ''
     kms_key_ids = [s.strip() for s in kms_key_ids.split(',')] or []
@@ -114,7 +129,8 @@ def _get_kms_config_values(beaver_config, filename):
 
             kms_encryption_context[parts[0].strip()] = parts[1].strip()
 
-    return KmsConfigValues(kms_access_key, kms_secret_key, kms_key_ids, kms_encryption_context)
+    return KmsConfigValues(kms_access_key, kms_secret_key, kms_key_ids, kms_encryption_context,
+                           cache_capacity, cache_age_seconds)
 
 
 def _load_config(beaver_config, field, filename):
