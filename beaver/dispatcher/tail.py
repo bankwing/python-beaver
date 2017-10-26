@@ -2,7 +2,6 @@
 import multiprocessing
 import Queue
 import signal
-import os
 import time
 
 from beaver.config import BeaverConfig
@@ -23,6 +22,7 @@ def run(args=None):
     queue = multiprocessing.JoinableQueue(beaver_config.get('max_queue_size'))
 
     manager_proc = None
+    termination_requested = multiprocessing.Event()
     ssh_tunnel = create_ssh_tunnel(beaver_config, logger=logger)
 
     def queue_put(*args):
@@ -31,7 +31,8 @@ def run(args=None):
     def queue_put_nowait(*args):
         return queue.put_nowait(*args)
 
-    def cleanup(signalnum, frame):
+    def request_shutdown(signalnum, frame):
+        termination_requested.set()
         if signalnum is not None:
             sig_name = tuple((v) for v, k in signal.__dict__.iteritems() if k == signalnum)[0]
             logger.info("{0} detected".format(sig_name))
@@ -39,6 +40,7 @@ def run(args=None):
         else:
             logger.info('Worker process cleanup in progress...')
 
+    def cleanup():
         try:
             queue_put_nowait(("exit", ()))
         except Queue.Full:
@@ -46,7 +48,7 @@ def run(args=None):
 
         if manager_proc is not None:
             try:
-                manager_proc.terminate()
+                manager_proc.close()
                 manager_proc.join()
             except RuntimeError:
                 pass
@@ -55,13 +57,9 @@ def run(args=None):
             logger.info("Closing ssh tunnel...")
             ssh_tunnel.close()
 
-        if signalnum is not None:
-            logger.info("Shutdown complete.")
-            return os._exit(signalnum)
-
-    signal.signal(signal.SIGTERM, cleanup)
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGQUIT, cleanup)
+    signal.signal(signal.SIGTERM, request_shutdown)
+    signal.signal(signal.SIGINT, request_shutdown)
+    signal.signal(signal.SIGQUIT, request_shutdown)
 
     def create_queue_consumer():
         process_args = (queue, beaver_config, logger)
@@ -72,35 +70,39 @@ def run(args=None):
         return proc
 
     def create_queue_producer():
-        manager = TailManager(
+        return TailManager(
             beaver_config=beaver_config,
             queue_consumer_function=create_queue_consumer,
             callback=queue_put,
             logger=logger
         )
-        manager.run()
 
-    while 1:
+    last_start = None
+    while not termination_requested.is_set():
 
         try:
 
             if REOPEN_FILES:
                 logger.debug("Detected non-linux platform. Files will be reopened for tailing")
 
-            t = time.time()
-            while True:
-                if manager_proc is None or not manager_proc.is_alive():
-                    logger.info('Starting worker...')
-                    t = time.time()
-                    manager_proc = multiprocessing.Process(target=create_queue_producer)
-                    manager_proc.start()
-                    logger.info('Working...')
-                manager_proc.join(10)
+            if manager_proc is None or not manager_proc.is_alive():
+                logger.info('Starting worker...')
+                manager_proc = create_queue_producer()
+                manager_proc.start()
+                last_start = time.time()
+                logger.info('Working...')
 
-                if beaver_config.get('refresh_worker_process'):
-                    if beaver_config.get('refresh_worker_process') < time.time() - t:
-                        logger.info('Worker has exceeded refresh limit. Terminating process...')
-                        cleanup(None, None)
+            if beaver_config.get('refresh_worker_process') and manager_proc.is_alive():
+                if last_start and beaver_config.get('refresh_worker_process') < time.time() - last_start:
+                    logger.info('Worker has exceeded refresh limit. Terminating process...')
+                    cleanup()
+            else:
+                # Workaround for fact that multiprocessing.Event.wait() deadlocks on main thread
+                # And blocks SIGINT signals from getting through.
+                while not termination_requested.is_set():
+                    time.sleep(0.5)
 
         except KeyboardInterrupt:
             pass
+    cleanup()
+

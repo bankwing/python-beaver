@@ -43,7 +43,7 @@ except ImportError:
     pass
 
 requirements = open('requirements/base.txt').readlines()
-if sys.version_info[:2] <= (2, 6):
+if sys.version_info[:2] <= (2, 7):
     requirements.extend(open('requirements/base26.txt').readlines())
 
 # python-daemon is not supported on windows
@@ -70,7 +70,6 @@ setup(
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: System Administrators',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Topic :: System :: Logging',
     ],
