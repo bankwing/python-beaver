@@ -95,7 +95,7 @@ class Tail(BaseLog):
 
         return _file
 
-    def close(self):
+    def close(self, remove_db_entry=False):
         """Closes all currently open file pointers"""
         if not self.active:
             return
@@ -104,6 +104,9 @@ class Tail(BaseLog):
         if self._file:
             self._file.close()
             self._sincedb_update_position(force_update=True)
+
+        if remove_db_entry:
+            self._sincedb_remove_entry()
 
         if self._current_event:
             event = '\n'.join(self._current_event)
@@ -206,14 +209,14 @@ class Tail(BaseLog):
         except EnvironmentError, err:
             if err.errno == errno.ENOENT:
                 self._log_info('file removed')
-                self.close()
+                self.close(remove_db_entry=True)
                 return
             raise
 
         fid = self.get_file_id(st)
         if fid != self._fid:
             self._log_info('file rotated')
-            self.close()
+            self.close(remove_db_entry=True)
         elif self._file.tell() > st.st_size:
             if st.st_size == 0 and self._ignore_truncate:
                 self._logger.info("[{0}] - file size is 0 {1}. ".format(fid, self._filename) +
@@ -395,6 +398,15 @@ class Tail(BaseLog):
             """)
             conn.close()
 
+    def _sincedb_remove_entry(self):
+        self._log_info('deleting from database with fid {0} and filename {1}'.format(self._fid, self._filename))
+        conn = sqlite3.connect(self._sincedb_path, isolation_level=None)
+        cursor = conn.cursor()
+        cursor.execute('delete from sincedb where fid = :fid and filename = :filename', {
+            'fid': self._fid,
+            'filename': self._filename
+        })
+
     def _sincedb_update_position(self, lines=0, force_update=False):
         """Retrieves the starting position from the sincedb sql db for a given file
         Returns a boolean representing whether or not it updated the record
@@ -479,7 +491,7 @@ class Tail(BaseLog):
             except EnvironmentError, err:
                 if err.errno == errno.ENOENT:
                     self._log_info('file removed')
-                    self.close()
+                    self.close(remove_db_entry=True)
 
             fid = self.get_file_id(st)
             if not self._fid:
@@ -487,7 +499,7 @@ class Tail(BaseLog):
 
             if fid != self._fid:
                 self._log_info('file rotated')
-                self.close()
+                self.close(remove_db_entry=True)
             elif seek_to_end:
                 self._seek_to_end()
 
