@@ -47,6 +47,12 @@ class Tail(BaseLog):
         self._tags = beaver_config.get_field('tags', filename)
         self._type = beaver_config.get_field('type', filename)
 
+        self._file_read_blocksize = beaver_config.get('file_read_blocksize', default=4096)
+
+        self._buffered_lines_max_lines = beaver_config.get('buffered_lines_max_lines', default=0)
+        self._buffered_lines_max_bytes = beaver_config.get('buffered_lines_max_bytes', default=0)
+        self._buffered_lines_max_seconds = beaver_config.get('buffered_lines_max_seconds', default=0)
+
         # The following is for the buffered tokenization
         # Store the specified delimiter
         self._delimiter = beaver_config.get_field("delimiter", filename)
@@ -219,7 +225,7 @@ class Tail(BaseLog):
             self.close(remove_db_entry=True)
         elif self._file.tell() > st.st_size:
             if st.st_size == 0 and self._ignore_truncate:
-                self._logger.info("[{0}] - file size is 0 {1}. ".format(fid, self._filename) +
+                self._log_info("[{0}] - file size is 0 {1}. ".format(fid, self._filename) +
                                   "If you use another tool (i.e. logrotate) to truncate " +
                                   "the file, your application may continue to write to " +
                                   "the offset it last wrote later. In such a case, we'd " +
@@ -236,44 +242,71 @@ class Tail(BaseLog):
 
     def _run_pass(self):
         """Read lines from a file and performs a callback against them"""
-        while True:
+        events = []
+        buffered_lines = 0
+        buffered_bytes = 0
+        run_start = time.time()
+
+        while self.active:
             try:
-                data = self._file.read(4096)
+                data = self._file.read(self._file_read_blocksize)
             except IOError, e:
                 if e.errno == errno.ESTALE:
                     self.active = False
-                    return False
-
+                    # break so we can still try to flush the existing buffers.
+                    break
             lines = self._buffer_extract(data)
 
             if not lines:
-                # Before returning, check if an event (maybe partial) is waiting for too long.
-                if self._current_event and time.time() - self._last_activity > 1:
-                    event = '\n'.join(self._current_event)
-                    self._current_event.clear()
-                    self._callback_wrapper([event])
-                break
+                if time.time() - run_start < self._buffered_lines_max_seconds:
+                    # If we are here, then theres no new lines but we have a _buffered_lines_max_seconds value to
+                    # respect, so just keep polling for new lines, with a bit of a sleep to avoid starving everything else.
+                    time.sleep(0.1)
+                else:
+                    # Too much time without lines, flush what we've got so far.
+                    break
+            else:
+                self._last_activity = time.time()
 
-            self._last_activity = time.time()
-
-            if self._multiline_regex_after or self._multiline_regex_before:
-                # Multiline is enabled for this file.
-                events = multiline_merge(
+                # We for sure have lines here tho.
+                if self._multiline_regex_after or self._multiline_regex_before:
+                    # Multiline is enabled for this file.
+                    events += multiline_merge(
                         lines,
                         self._current_event,
                         self._multiline_regex_after,
                         self._multiline_regex_before)
-            else:
-                events = lines
+                else:
+                    events += lines
 
-            if events:
-                self._callback_wrapper(events)
+                buffered_lines = len(events)
+                buffered_bytes += len(data)
 
-            if self._sincedb_path:
-                current_line_count = len(lines)
-                self._sincedb_update_position(lines=current_line_count)
+                if events and (
+                    buffered_bytes >= self._buffered_lines_max_bytes or
+                    buffered_lines >= self._buffered_lines_max_lines or
+                    time.time() - run_start >= self._buffered_lines_max_seconds
+                ):
+                    self._callback_wrapper(events)
+                    self._sincedb_update_position(lines=len(events))
 
-        self._sincedb_update_position()
+                    events = []
+                    buffered_lines = 0
+                    buffered_bytes = 0
+                    run_start = time.time()
+
+        # No more lines
+        # Before returning, check if an event (maybe partial) is waiting for too long.
+        if self._current_event and time.time() - self._last_activity > 1:
+            event = '\n'.join(self._current_event)
+            self._current_event.clear()
+            events += [event]
+
+        if events:
+            self._callback_wrapper(events)
+
+        self._sincedb_update_position(lines=len(events))
+        return True
 
     def _callback_wrapper(self, lines):
         now = datetime.datetime.utcnow()
@@ -288,6 +321,7 @@ class Tail(BaseLog):
             'tags': self._tags,
             'type': self._type,
         }))
+        self._log_debug("Sent {0} lines from Tail".format(len(lines)))
 
     def _seek_to_end(self):
         self._log_debug('seek_to_end')

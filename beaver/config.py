@@ -221,6 +221,15 @@ class BeaverConfig():
             'aws_kms_secret_key': None,
             'aws_kms_key_ids': None,
             'aws_kms_encryption_context': None,
+
+            # Size in bytes that Tail process will load into memory and proccess at a time from file
+            'file_read_blocksize': 4096,
+
+            # If set, Tail processes will buffer data in memory until up to this many lines are read
+            # or buffered_lines_max_size is reached, or buffered_lines_max_seconds is exceeded, whichever comes first.
+            'buffered_lines_max_lines': 0,
+            'buffered_lines_max_bytes': 0,
+            'buffered_lines_max_seconds': 0
         }
 
         self._configfile = args.config
@@ -367,7 +376,10 @@ class BeaverConfig():
                 'kafka_batch_t',
                 'kafka_ack_timeout',
                 'number_of_consumer_processes',
-                'ignore_old_files'
+                'ignore_old_files',
+                'buffered_lines_max_lines',
+                'buffered_lines_max_bytes',
+                'buffered_lines_max_seconds'
             ]
             for key in require_int:
                 if config[key] is not None:
