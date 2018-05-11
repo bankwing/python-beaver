@@ -74,9 +74,13 @@ class Tail(BaseLog):
         self._multiline_regex_after = beaver_config.get_field('multiline_regex_after', filename)
         self._multiline_regex_before = beaver_config.get_field('multiline_regex_before', filename)
 
+        # Attribute for ignore-line events
+        self._ignoreline_regex = beaver_config.get_field('ignoreline_regex', filename)
+
         self._update_file()
         if self.active:
             self._log_info("watching logfile")
+
 
     def __del__(self):
         """Closes all files"""
@@ -116,8 +120,18 @@ class Tail(BaseLog):
 
         if self._current_event:
             event = '\n'.join(self._current_event)
+
             self._current_event.clear()
-            self._callback_wrapper([event])
+            if self._ignoreline_regex:
+                # Ignoreline is enabled for this file.
+                self._log_debug("################ Ignore line regex is enabled")
+                if self._ignoreline_regex and self._ignoreline_regex.search(event):
+                    self._log_debug("ignore this line: "+event)
+                else:
+                    self._callback_wrapper([event])
+            else:
+                self._callback_wrapper([event])
+
 
     def run(self, once=False):
         while self.active:
@@ -276,8 +290,23 @@ class Tail(BaseLog):
                         self._current_event,
                         self._multiline_regex_after,
                         self._multiline_regex_before)
+
                 else:
                     events += lines
+
+                if self._ignoreline_regex:
+                    # Ignoreline is enabled for this file.
+                    self._log_debug("################ Ignore line regex is enabled")
+                    tmpevents = []
+                    for line in events:
+                        print("check ignore line"+line)
+                        if self._ignoreline_regex and self._ignoreline_regex.search(line):
+                            self._log_debug("ignore this line: "+line)
+                        else:
+                            tmpevents.append(line)
+
+                    events = tmpevents
+
 
                 buffered_lines = len(events)
                 buffered_bytes += len(data)
@@ -287,6 +316,7 @@ class Tail(BaseLog):
                     buffered_lines >= self._buffered_lines_max_lines or
                     time.time() - run_start >= self._buffered_lines_max_seconds
                 ):
+
                     self._callback_wrapper(events)
                     self._sincedb_update_position(lines=len(events))
 
@@ -384,6 +414,19 @@ class Tail(BaseLog):
                             self._multiline_regex_before)
                 else:
                     events = lines
+
+                if self._ignoreline_regex:
+                    # Ignoreline is enabled for this file.
+                    self._log_debug("################ Ignore line regex is enabled")
+                    tmpevents = []
+                    for line in events:
+                        print("check ignore line"+line)
+                        if re_ignoreline and re_ignoreline.search(line):
+                            self._log_debug("ignore this line: "+line)
+                        else:
+                            tmpevents.append(line)
+
+
                 self._callback_wrapper(events)
 
         return
@@ -597,3 +640,4 @@ class Tail(BaseLog):
                 block -= 1
 
         return data.splitlines()[-window:]
+

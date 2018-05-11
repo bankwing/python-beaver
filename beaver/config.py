@@ -32,6 +32,9 @@ class BeaverConfig():
             # allow ignoring copytruncate results
             'ignore_truncate': '0',
 
+            # ignoring line with regex
+            'ignoreline_regex': '',
+
             # buffered tokenization
             # we string-escape the delimiter later so that we can put escaped characters in our config file
             'delimiter': '\n',
@@ -517,6 +520,9 @@ class BeaverConfig():
             if config['multiline_regex_before']:
                 config['multiline_regex_before'] = re.compile(config['multiline_regex_before'])
 
+            if config['ignoreline_regex']:
+                config['ignoreline_regex'] = re.compile(config['ignoreline_regex'])
+
             require_int = ['sincedb_write_interval', 'stat_interval', 'tail_lines']
             for k in require_int:
                 config[k] = int(config[k])
@@ -573,3 +579,4 @@ class BeaverConfig():
         for f in files:
             if f not in self._file_config:
                 self._file_config[f] = self._section_defaults
+
