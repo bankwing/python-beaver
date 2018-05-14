@@ -5,6 +5,7 @@ import stat
 import time
 import logging
 import multiprocessing
+import datetime
 
 from beaver.utils import eglob
 from beaver.base_log import BaseLog
@@ -116,6 +117,12 @@ class TailManager(multiprocessing.Process, BaseLog):
                     raise
             else:
                 if not stat.S_ISREG(st.st_mode):
+                    continue
+                elif (int(self._beaver_config.get('ignore_old_files_days')) > 0 or \
+                     int(self._beaver_config.get('ignore_old_files_hours')) > 0 or \
+                     int(self._beaver_config.get('ignore_old_files_minutes')) > 0 \
+                     ) and datetime.datetime.fromtimestamp(st.st_mtime) < (datetime.datetime.today() - datetime.timedelta(days=int(self._beaver_config.get('ignore_old_files_days')), hours=int(self._beaver_config.get('ignore_old_files_hours')), minutes=int(self._beaver_config.get('ignore_old_files_minutes')))): 
+                    self._logger.debug('[{0}] - file {1} older then {2} days {3} hours {4} minutes so ignoring it'.format(self.get_file_id(st), absname, self._beaver_config.get('ignore_old_files_days'), self._beaver_config.get('ignore_old_files_hours'), self._beaver_config.get('ignore_old_files_minutes')))
                     continue
                 append_possible_files = possible_files.append
                 fid = self.get_file_id(st)

@@ -206,7 +206,11 @@ class BeaverConfig():
             'pid': '',
 
             # Ignore files older then n days, use 0 to disable
-            'ignore_old_files': 0,
+            'ignore_old_files_days': 0,
+            # Ignore files older then n hours, use 0 to disable
+            'ignore_old_files_hours': 0,
+            # Ignore files older then n minutes, use 0 to disable
+            'ignore_old_files_minutes': 0,
 
             # default does no encryption
             # other options:
@@ -379,7 +383,9 @@ class BeaverConfig():
                 'kafka_batch_t',
                 'kafka_ack_timeout',
                 'number_of_consumer_processes',
-                'ignore_old_files',
+                'ignore_old_files_days',
+                'ignore_old_files_hours',
+                'ignore_old_files_minutes',
                 'buffered_lines_max_lines',
                 'buffered_lines_max_bytes',
                 'buffered_lines_max_seconds'
