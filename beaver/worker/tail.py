@@ -299,7 +299,7 @@ class Tail(BaseLog):
                     self._log_debug("################ Ignore line regex is enabled")
                     tmpevents = []
                     for line in events:
-                        print("check ignore line"+line)
+                        self._log_debug("check ignore line: "+line)
                         if self._ignoreline_regex and self._ignoreline_regex.search(line):
                             self._log_debug("ignore this line: "+line)
                         else:
@@ -420,7 +420,7 @@ class Tail(BaseLog):
                     self._log_debug("################ Ignore line regex is enabled")
                     tmpevents = []
                     for line in events:
-                        print("check ignore line"+line)
+                        self._log_debug("check ignore line: "+line)
                         if re_ignoreline and re_ignoreline.search(line):
                             self._log_debug("ignore this line: "+line)
                         else:
