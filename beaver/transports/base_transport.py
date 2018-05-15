@@ -91,6 +91,7 @@ class BaseTransport(object):
                 'full_message': message,
                 'timestamp': timestampSeconds,
                 'level': 6,
+                'tags': data[self._fields.get('tags')],
                 '_file': data[self._fields.get('file')],
             }
 
