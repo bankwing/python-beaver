@@ -77,6 +77,9 @@ class Tail(BaseLog):
         # Attribute for ignore-line events
         self._ignoreline_regex = beaver_config.get_field('ignoreline_regex', filename)
 
+	# Size of the input buffer
+        self._wait_before_send = beaver_config.get('wait_before_send', 0.1)
+
         self._update_file()
         if self.active:
             self._log_info("watching logfile")
@@ -341,6 +344,12 @@ class Tail(BaseLog):
     def _callback_wrapper(self, lines):
         now = datetime.datetime.utcnow()
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%S") + ".%03d" % (now.microsecond / 1000) + "Z"
+
+        # respect, with a bit of a sleep to avoid cpu consume.
+        if self._wait_before_send > 0:
+            self._log_debug("wait for {0} before send to avoid cpu consume".format(self._wait_before_send))
+            time.sleep(self._wait_before_send)
+
         self._callback(('callback', {
             'fields': self._fields,
             'filename': self._filename,

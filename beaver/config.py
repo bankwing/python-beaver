@@ -170,6 +170,9 @@ class BeaverConfig():
             # time in seconds to wait on queue.get() block before raising Queue.Empty exception
             'wait_timeout': '5',
 
+            # time in seconds to wait before each sending message
+            'wait_before_send': '0.1',
+
             # path to sincedb sqlite db
             'sincedb_path': '',
 
@@ -397,6 +400,7 @@ class BeaverConfig():
             require_float = [
                 'update_file_mapping_time',
                 'discover_interval',
+                'wait_before_send',
             ]
 
             for key in require_float:
